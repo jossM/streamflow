@@ -1,0 +1,20 @@
+# use docker-compose --build to run a local version of the api
+version: '3.3'
+services:
+  streamflow-api:
+    build:
+      context: ".."
+      dockerfile: api/Dockerfile
+      args:
+        API_PORT: "8080"
+    environment:
+      AWS_PROFILE: "${AWS_PROFILE}"
+      STREAM_FLOW_PORT: "8080"
+      STREAMFLOW_MODE: "dev"
+    restart: on-failure
+    ports:
+      - "8080:8080"
+    volumes:
+      #- ~/.aws:/home/streamflow/.aws
+      - ..:/local-src
+    command: ["python", "/local-src/main_api.py"]
