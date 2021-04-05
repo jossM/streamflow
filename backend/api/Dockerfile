@@ -3,13 +3,11 @@ ARG API_PORT=5000
 
 RUN groupadd -r streamflow -g 901 && useradd -u 901 -r -g streamflow streamflow
 
-COPY --chown=streamflow .. /streamflow
-
-RUN ls /streamflow
+COPY --chown=streamflow . /streamflow-backend
 
 RUN  pip3 install --upgrade pip \
-    && pip3 install -r /streamflow/requirements.txt \
-    && pip3 install -r /streamflow/api/requirements.txt \
+    && pip3 install -r /streamflow-backend/requirements.txt \
+    && pip3 install -r /streamflow-backend/api/requirements.txt \
     && rm -rf ~/.cache
 
 RUN pipdeptree --warn fail
