@@ -4,9 +4,8 @@ Used for local development
 """
 import os
 
-from api.app import flask_app
-from config import CONFIG
+from api.streamflow import flask_app
+import config
 
 if __name__ == "__main__":
-    # todo: add configuration file for the app
-    flask_app.run(host="0.0.0.0", port=os.getenv("STREAM_FLOW_PORT"), debug=CONFIG.flask_dev_mode)
+    flask_app.run(host="0.0.0.0", port=config.DEV_PORT, debug=config.FLASK_DEV_MODE)

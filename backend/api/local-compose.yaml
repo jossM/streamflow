@@ -1,20 +1,22 @@
-# use docker-compose --build to run a local version of the api
+# use `UID="$(id -u)" GID="$(id -g)" docker-compose up --build` to run a local version of the api
 version: '3.3'
 services:
   streamflow-api:
+    user: "${UID}:${GID}"
     build:
       context: ".."
       dockerfile: api/Dockerfile
-      args:
-        API_PORT: "8080"
     environment:
-      AWS_PROFILE: "${AWS_PROFILE}"
-      STREAM_FLOW_PORT: "8080"
-      STREAMFLOW_MODE: "dev"
+      STREAM_FLOW.PORT: "8080"
+      STREAMFLOW.MODE: "dev"
+      STREAMFLOW.DYNAMODB_REGION: "${AWS_REGION}"
+      STREAMFLOW.TASKS_TABLE_NAME: "streamflow_tasks"
+      STREAMFLOW.TASKS_RUNS_TABLE_NAME: "streamflow_task_runs"
+      AWS_DEFAULT_REGION: "us-east-1"
     restart: on-failure
     ports:
       - "8080:8080"
     volumes:
-      - ~/.aws:/home/streamflow/.aws
+      - $HOME/.aws/:/home/streamflow/.aws/:ro
       - ..:/local-src
     command: ["python", "/local-src/main_api.py"]
