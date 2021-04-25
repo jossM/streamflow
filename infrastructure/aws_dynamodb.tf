@@ -26,11 +26,6 @@ resource "aws_dynamodb_table" "tasks_instances" {
     type = "S"  # string
   }
 
-  attribute {
-    name = "execution_id"
-    type = "S"
-  }
-
   # todo: add time to live attribute ?
 
   server_side_encryption {
@@ -42,7 +37,7 @@ resource "aws_dynamodb_table" "tasks_instances" {
 }
 
 data "aws_iam_policy_document" "streamflow_admin" {
-  version = "2017-10-17"
+  version = "2012-10-17"
   statement {
     sid="ListAndDescribe"
     effect="Allow"
@@ -51,8 +46,8 @@ data "aws_iam_policy_document" "streamflow_admin" {
       "dynamodb:DescribeReservedCapacity*",
       "dynamodb:DescribeLimits",
       "dynamodb:DescribeTimeToLive"
-    ],
-    resource = ["*"]
+    ]
+    resources = ["*"]
   }
   statement {
     actions = [
