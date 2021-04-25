@@ -1,5 +1,5 @@
 # streamflow aws infrastructure terraform module
-This repo is a terraform module that creates all of streamflow infrastructure.
+This folder is a terraform module that creates all of streamflow infrastructure elements.
 
 It requires the following providers to work:
 1. AWS provider (to deploy the dynamodb tables)
