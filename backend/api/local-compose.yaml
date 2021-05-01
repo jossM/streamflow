@@ -6,17 +6,19 @@ services:
     build:
       context: ".."
       dockerfile: api/Dockerfile
+      args:
+        UID: "$UID"
+        GID: "$GID"
     environment:
       STREAM_FLOW.PORT: "8080"
       STREAMFLOW.MODE: "dev"
       STREAMFLOW.TASKS_TABLE_NAME: "streamflow_tasks"
       STREAMFLOW.TASKS_RUNS_TABLE_NAME: "streamflow_task_runs"
       AWS_DEFAULT_REGION: "eu-west-1"
-      # AWS_CONFIG_FILE: "/home/root/.aws/config"
     restart: on-failure
     ports:
       - "8080:8080"
     volumes:
-      - $HOME/.aws/:/root/.aws/:ro
+      - $HOME/.aws/:/home/streamflow/.aws/:ro
       - ..:/local-src
     command: ["python", "/local-src/main_api.py"]
