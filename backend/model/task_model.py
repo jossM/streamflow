@@ -26,12 +26,12 @@ class Task(BaseModel):
                     description="Uniquely identifies the task. \".\" element will serve to indicate dag(s) of the task",
                     min_length=1,
                     max_length=1000)
-    pod: Any = Field(
+    pod_template: Any = Field(
         default=None,
         title="pod_template",
         description="The Jinja template of the pod that must be run by kubernetes",
     )
-    call: CallTask = Field(
+    call_template: CallTask = Field(
         default=None,
         title="call_template",
         description="The Jinja template of the HTTP call that must be performed"
@@ -43,7 +43,7 @@ class Task(BaseModel):
         description="List of all tasks ids that depend on this task"
     )
 
-    @validator("pod", "call")
+    @validator("pod_template", "call_template")
     def check_at_least_one(cls, all_templates):
         # pydantic.ValidationError will be raised at the end
         assert sum(template is None for template in all_templates) != 1, \

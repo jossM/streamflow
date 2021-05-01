@@ -15,4 +15,4 @@ USER streamflow
 COPY . /streamflow-backend
 
 # run api with :
-# gunicorn --worker-class gevent --workers 8 --bind 0.0.0.0:$STREAM_FLOW_PORT api.app:app --max-requests 10000 --timeout 5 --keep-alive 5 --log-level info
+# gunicorn --worker-class gevent --worcakers 8 --bind 0.0.0.0:$STREAM_FLOW_PORT api.app:app --max-requests 10000 --timeout 5 --keep-alive 5 --log-level info
