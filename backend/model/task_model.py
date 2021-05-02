@@ -2,6 +2,7 @@
 All models describing what a task is according to streamflow
 """
 from typing import Any, Dict, List
+import json
 
 from pydantic import BaseModel, Field, validator
 

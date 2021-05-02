@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, List
 
 import backoff
 from botocore.exceptions import ClientError
@@ -7,6 +7,7 @@ import config
 from db.dynamodb import dynamodb
 from logs import logger
 from model.task_model import Task
+import streaming
 
 TASK_TABLE = dynamodb.Table(config.TASKS_TABLE)
 
@@ -32,3 +33,18 @@ def get_all_tasks() -> Iterable[Task]:  # todo: add option to filter on a given 
         start_key = response.get('LastEvaluatedKey', None)
         if start_key is None:
             break
+
+
+@backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)
+def _batch_changes(max_25_tasks_list: List[Task]):
+    if len(max_25_tasks_list):
+        raise ValueError("")
+    with TASK_TABLE.batch_writer() as batch:
+        for task in max_25_tasks_list:
+            batch.put_item(task.dict())
+
+
+def save_all_tasks(tasks: Iterable[Task]):
+    for task_batch in streaming.group(tasks, 25):
+        _batch_changes(task_batch)
+
