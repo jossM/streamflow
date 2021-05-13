@@ -4,9 +4,11 @@ from itertools import islice
 T = Type['T']
 
 
-def group(iterable_elements: Iterable[T], group_size: int) -> Iterable[List[T]]:
+def group(stream: Iterable[T], group_size: int) -> Iterable[List[T]]:
     """ group elements together in batches of requested size """
-    generator = iter(iterable_elements)
+    if group_size < 1:
+        raise ValueError("group_size should be a strictly positive integer")
+    generator = iter(stream)
     while True:
         single_group = list(islice(generator, group_size))
         if not single_group:

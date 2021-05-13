@@ -1,0 +1,9 @@
+# use `UID="$(id -u)" GID="$(id -g)" docker-compose up --build` to run a local version of the api
+version: '3.3'
+services:
+  streamflow-test:
+    build:
+      context: ".."
+      dockerfile: tests/Dockerfile
+    restart: "no"
+    command: pytest
