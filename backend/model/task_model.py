@@ -2,23 +2,41 @@
 All models describing what a task is according to streamflow
 """
 import json
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, List, Tuple
 
 from pydantic import BaseModel, Field, validator
+from requests import request
 
 from config import DAG_DELIMITER
 
 
 class CallTask(BaseModel):
-    setup_arguments: List[Dict] = Field(  # todo: handle this part
-        default_factory=list,
-        title="Step Arguments",
-        description="All arguments to call the function defined with STREAMFLOW.CALL_ENV_SETUP "
-                    "to set up environment to be injected in template",
+    url_template: str = Field(
+        title="Url",
+        description="The Jinja formatted url template that needs to will be called"
+    )
+    method: str = Field(
+        title="Method to call the api",
+        description=""
+    )
+
+    response_name: Optional[str] = Field(
+        title="Call_name",
+        description="Name of the response data",
+        default=None,
+        min_length=1,
+        max_length=150,
+    )
+    log_response: bool = Field(
+        title="Log response",
+        description="Whether the response data can be logged or not.",
+        default=False,
     )
     template: str = Field(
         title="Step Arguments",
         description="jinja template returning the json object corresponding to requests arguments.",
+        default="",
+        max_length=10000,
     )
 
 
@@ -32,28 +50,37 @@ class Task(BaseModel):
         title="pod_template",
         description="The Jinja template of the pod that must be run by kubernetes",
     )
-    call_template: Optional[CallTask] = Field(
+    call_templates: Optional[List[CallTask]] = Field(
         default=None,
         title="call_template",
-        description="The Jinja template of the HTTP call that must be performed"
+        description="The Jinja template of the HTTP call that must be performed",
+        min_items=1,
+        max_items=10,
     )
-
-    next_tasks_ids: List[str] = Field(
+    previous_tasks_ids: List[str] = Field(
         default_factory=list,
-        title="Children_Tasks",
-        description="List of all tasks ids that depend on this task"
+        title="Parent Tasks Ids",
+        description="List of all this task depends on",
     )
 
     @validator("pod_template", "call_template")
     def check_at_least_one(cls, all_templates):
         # pydantic.ValidationError will be raised at the end so Exception type does not matter
-        assert sum(template is None for template in all_templates) != 1, \
+        assert sum(bool(template) for template in all_templates) != 1, \
             "Exactly one of pod_template or call_template must be filled"
 
     @validator("id")
     def check_task_id(cls, task_id: str):
         assert DAG_DELIMITER in task_id, \
             f'A task must always belong to a dag. A task should always contain one char "{DAG_DELIMITER}"'
+
+
+class DbTask(Task):
+    next_tasks_ids: List[str] = Field(
+        default_factory=list,
+        title="Children Tasks Ids",
+        description="List of all tasks ids that depend on this task"
+    )
 
 
 class TasksChange(BaseModel):
