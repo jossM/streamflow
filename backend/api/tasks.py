@@ -36,7 +36,7 @@ def add_tasks_resources(app: FastAPI):
         # todo add right handling
         await acquire_lock()
         try:
-            current_tasks = list(get_all_tasks())
+            current_tasks = [task async for task in get_all_tasks()]
             db_changes = build_db_changes(current_tasks=current_tasks, change=tasks_change)
             new_tasks_graph = build_new_tasks_graph(change=db_changes, current_tasks=current_tasks)
             orphan_tasks = get_orphan_tasks(new_tasks_graph)
