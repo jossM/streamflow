@@ -116,10 +116,10 @@ async def get_tasks_page(page_size: int = 50,  # todo pass default page size in 
     elif filter_expression is not None:
         scan_args.update(FilterExpression=filter_expression)
     response = await _scan_table(**scan_args)
-    start_key = response.get('LastEvaluatedKey')
+    next_key = response.get('LastEvaluatedKey')
     return TasksPage(
         tasks=[_deserialize_downward_task(task_data) for task_data in response.get('Items', [])],
-        next_page_token=serialize_token(start_key) if start_key else None,
+        next_page_token=serialize_token(next_key) if next_key else None,
     )
 
 

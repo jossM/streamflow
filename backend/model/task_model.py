@@ -74,7 +74,7 @@ class Task(BaseModel):
 
     @root_validator
     def _check_at_least_one_template(cls, values):
-        assert bool(values.get("call_templates")) + bool(values.get("pod_template")) == 1, \
+        assert sum(bool(values.get(field)) for field in cls.__fields__ if "template" in field) == 1, \
             "Exactly one of pod_template or call_template must be filled"
         return values
 
