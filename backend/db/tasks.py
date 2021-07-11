@@ -46,7 +46,7 @@ def _deserialize_downward_task(item: Dict, do_raise: bool = True) -> Optional[Db
     try:
         clean_item = dict(item)
         clean_item["id"] = item["id"][len(TASK_KEY_PREFIX):]
-        return DbTask(**item)
+        return DbTask(**clean_item)
     except (ValidationError, TypeError, KeyError):
         logger.error(f"Failed to parse item {item}")
         if do_raise:

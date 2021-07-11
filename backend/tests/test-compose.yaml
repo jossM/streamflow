@@ -6,4 +6,4 @@ services:
       context: ".."
       dockerfile: tests/Dockerfile
     restart: "no"
-    command: pytest
+    command: "pytest -v"
