@@ -1,5 +1,6 @@
 import itertools
-from typing import Iterable, List, Optional, Dict, Set
+from typing import AsyncIterable, List, Optional, Dict, Set
+import asyncio
 
 import backoff
 from botocore.exceptions import ClientError
@@ -65,10 +66,10 @@ def _serialize_downward_task(task: DbTask) -> Dict:
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)
 async def _scan_table(**kwargs):
     """Dummy function to add backoff logic to table scan"""
-    return TASK_TABLE.scan(**kwargs)
+    return await asyncio.to_thread(TASK_TABLE.scan, **kwargs)
 
 
-async def get_all_tasks() -> Iterable[DbTask]:  # todo: add option to filter on a given dag or list of dags
+async def get_all_tasks() -> AsyncIterable[DbTask]:  # todo: add option to filter on a given dag or list of dags
     """ Get all tasks corresponding to filters"""
     start_key = None
     scan_args = dict(
@@ -97,7 +98,7 @@ class TasksPage(BaseModel):
     )
 
 
-async def get_tasks_page(page_size: int=50,  # todo pass default page size in config
+async def get_tasks_page(page_size: int = 50,  # todo pass default page size in config
                          page_token: Optional[str] = None,
                          filter_expression: Optional[str] = None) -> TasksPage:
     """Store all tasks in dynamodb"""
@@ -132,19 +133,25 @@ class DbTasksChange(BaseModel):
 
 
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)
-async def _batch_changes(max_25_tasks_list: DbTasksChange):
-    """Dummy function to add backoff logic to table batch write"""
-    if len(max_25_tasks_list) > 25:
-        raise ValueError("Task cannot be changed more than 25 at a time")
+async def _batch_changes(tasks_list: DbTasksChange):
+    """Dummy function to add backoff & async logic to table batch write"""
+    await asyncio.to_thread(_sync_batch_changes, tasks_list)
+
+
+def _sync_batch_changes(tasks_list: DbTasksChange):
+    """Dummy function to perform the write in db"""
     with TASK_TABLE.batch_writer() as batch:
-        for task in max_25_tasks_list.task_to_update:
+        for task in tasks_list.task_to_update:
             batch.put_item(Item=_serialize_downward_task(task))
-        for task_id in max_25_tasks_list.ids_to_remove:
+        for task_id in tasks_list.ids_to_remove:
             batch.delete_item(Key={"id": task_id})
 
 
 async def update_db(db_changes: DbTasksChange) -> None:
-    all_change_batches = streaming.group(itertools.chain(db_changes.task_to_update, db_changes.ids_to_remove), 25)
+    all_change_batches = streaming.group(
+        itertools.chain(db_changes.task_to_update, db_changes.ids_to_remove),
+        25  # dynamodb does not support more than 25 elements in a batch call at the moment
+    )
     for change_batch_elements in all_change_batches:
         task_change_batch = DbTasksChange(
             task_to_update=[update for update in change_batch_elements if isinstance(update, DbTask)],
