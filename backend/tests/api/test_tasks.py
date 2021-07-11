@@ -1,7 +1,6 @@
-from typing import Optional
-
 from fastapi.testclient import TestClient
 from pytest import fixture
+
 
 from main_api import app
 from api.tasks import ROUTE
@@ -11,8 +10,7 @@ from model.task_model import Task, CallTask
 client = TestClient(app)
 
 
-@fixture
-def task():
+def make_task():
     return Task(
         id="dummy_dag/valid_task",
         call_templates=[
@@ -24,7 +22,8 @@ def task():
     ).json()
 
 
-def test_tasks_get():
+
+def test_tasks_get(mocker):
     pass
 
 
