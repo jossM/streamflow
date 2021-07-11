@@ -4,8 +4,7 @@ All models describing what a task is according to streamflow
 import json
 from typing import Optional, List, Tuple
 
-from pydantic import BaseModel, Field, validator
-from requests import request
+from pydantic import BaseModel, Field, validator, root_validator
 
 from config import DAG_DELIMITER
 
@@ -45,11 +44,13 @@ class Task(BaseModel):
                     description="Uniquely identifies the task. \".\" element will serve to indicate dag(s) of the task",
                     min_length=1,
                     max_length=1000)
+
     pod_template: Optional[str] = Field(
         default=None,
         title="pod_template",
         description="The Jinja template of the pod that must be run by kubernetes",
     )
+
     call_templates: Optional[List[CallTask]] = Field(
         default=None,
         title="call_template",
@@ -57,22 +58,25 @@ class Task(BaseModel):
         min_items=1,
         max_items=10,
     )
+
     previous_tasks_ids: List[str] = Field(
         default_factory=list,
         title="Parent Tasks Ids",
         description="List of all this task depends on",
     )
 
-    @validator("pod_template", "call_template")
-    def check_at_least_one(cls, all_templates):
-        # pydantic.ValidationError will be raised at the end so Exception type does not matter
-        assert sum(bool(template) for template in all_templates) != 1, \
-            "Exactly one of pod_template or call_template must be filled"
-
     @validator("id")
-    def check_task_id(cls, task_id: str):
+    def _check_task_id(cls, task_id: str):
+        # pydantic.ValidationError will be raised at the end so Exception type does not matter
         assert DAG_DELIMITER in task_id, \
             f'A task must always belong to a dag. A task should always contain one char "{DAG_DELIMITER}"'
+        return task_id
+
+    @root_validator
+    def _check_at_least_one_template(cls, values):
+        assert bool(values.get("call_templates")) + bool(values.get("pod_template")) == 1, \
+            "Exactly one of pod_template or call_template must be filled"
+        return values
 
 
 class DbTask(Task):
