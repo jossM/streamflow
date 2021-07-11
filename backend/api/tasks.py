@@ -2,7 +2,6 @@ from typing import Optional, List, Tuple, Union
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 from graph.changes import build_db_changes, build_new_tasks_graph
 from graph.validation import get_orphan_tasks, get_tasks_cycles
@@ -12,14 +11,16 @@ from model.task_model import TasksChange
 ROUTE = "/tasks"
 
 
-class CyclesIntroduced(BaseModel, Exception):
-    message: str
-    cycles: List[List[str]]
+class CyclesIntroduced(Exception):
+    def __init__(self, message: str, cycles: List[List[str]]):
+        self.message = message
+        self.cycles = cycles
 
 
-class InconsistentTasksDependencies(BaseModel, Exception):
-    message: str
-    inconsistent_links: List[Tuple[List[str], str]]
+class InconsistentTasksDependencies(Exception):
+    def __init__(self, message: str, inconsistent_links: List[Tuple[List[str], str]]):
+        self.message = message
+        self.inconsistent_links = inconsistent_links
 
 
 def add_tasks_resources(app: FastAPI):
@@ -55,11 +56,11 @@ def add_tasks_resources(app: FastAPI):
             await release_lock()
         return f"Successfully registered {len(tasks_change.tasks)} task(s)"
 
+    @app.exception_handler(CyclesIntroduced)
     async def handle_put_error(request: Request, exception: Union[CyclesIntroduced, InconsistentTasksDependencies]):
-        return JSONResponse(
-            status_code=400,
-            content={"error_type": type(exception).__name__, **exception.dict()}
-        )
+        exception_data = {"error_type": type(exception).__name__}
+        exception_data.update({attr: getattr(exception, attr) for attr in dir(exception)})
+        return JSONResponse(status_code=400, content=exception_data)
 
     app.exception_handler(CyclesIntroduced)(handle_put_error)
     app.exception_handler(InconsistentTasksDependencies)(handle_put_error)
