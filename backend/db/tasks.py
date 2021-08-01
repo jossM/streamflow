@@ -1,21 +1,21 @@
 import itertools
-from typing import AsyncIterable, List, Optional, Dict, Set
+from typing import AsyncIterable, Optional, Dict
 import asyncio
 
 import backoff
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key
-from pydantic import ValidationError, BaseModel, Field
+from pydantic import ValidationError
 
 import config
 from db.dynamodb import dynamodb
+from model.db import TasksPage, DbTasksChange, DbTask
 from model.pagination import serialize_token, deserialize_token
-from model.task_model import DbTask
 from logs import logger
 import streaming
 
 TASK_TABLE = dynamodb.Table(config.TASKS_TABLE) if not config.TEST_ENV else None
-LOCK_TASK_ID = ""  # todo use this as env config variable
+LOCK_TASK_ID = "TASK_LOCK"  # todo use this as env config variable
 TASK_KEY_PREFIX = "TASK-"
 assert not LOCK_TASK_ID.startswith(TASK_KEY_PREFIX), \
     f'Invalid config : LOCK_TASK_ID "{LOCK_TASK_ID}" begins with TASK_KEY_PREFIX "{TASK_KEY_PREFIX}"'
@@ -25,16 +25,16 @@ assert not LOCK_TASK_ID.startswith(TASK_KEY_PREFIX), \
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)
 async def acquire_lock():
     """ Gets the lock on the tasks table to ensure tasks checks are ok for a given modification"""
-    TASK_TABLE.put_item(
-        Item={'id': LOCK_TASK_ID},
-        ConditionExpression='attribute_not_exists(id)',
+    await asyncio.to_thread(
+        TASK_TABLE.put_item,
+        Item={'id': LOCK_TASK_ID}, ConditionExpression='attribute_not_exists(id)'
     )
 
 
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)
 async def release_lock():
     """ Gets the lock on the tasks table to ensure tasks checks are ok"""
-    TASK_TABLE.delete_item(Key={'id': LOCK_TASK_ID})
+    await asyncio.to_thread(TASK_TABLE.delete_item, Key={'id': LOCK_TASK_ID})
 
 
 # Utils
@@ -89,15 +89,6 @@ async def get_all_tasks() -> AsyncIterable[DbTask]:  # todo: add option to filte
             break
 
 
-class TasksPage(BaseModel):
-    """ Represents a list of task to be returned as a page"""
-    tasks: List[DbTask] = Field(title="Tasks", description="Tasks of the page")
-    next_page_token: Optional[str] = Field(
-        title="Page Token",
-        description="Token to be given back to the api to get the next page"
-    )
-
-
 async def get_tasks_page(page_size: int = 50,  # todo pass default page size in config
                          page_token: Optional[str] = None,
                          filter_expression: Optional[str] = None) -> TasksPage:
@@ -124,12 +115,6 @@ async def get_tasks_page(page_size: int = 50,  # todo pass default page size in 
 
 
 # Updates
-class DbTasksChange(BaseModel):
-    ids_to_remove: Set[str] = Field(description="List of all task ids to be deleted.")
-    task_to_update: List[DbTask] = Field(description="List of all task to be created or updated")
-
-    def __len__(self):
-        return len(self.ids_to_remove) + len(self.task_to_update)
 
 
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)

@@ -2,7 +2,7 @@ from typing import List, Dict, Set
 
 from networkx import simple_cycles, DiGraph
 
-from model.task_model import DbTask
+from model.db import DbTask
 
 
 def get_orphan_tasks(all_tasks: List[DbTask]) -> List[DbTask]:

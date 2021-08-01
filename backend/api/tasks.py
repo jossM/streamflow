@@ -5,7 +5,8 @@ from fastapi.responses import JSONResponse
 
 from graph.changes import build_db_changes, build_new_tasks_graph
 from graph.validation import get_orphan_tasks, get_tasks_cycles
-from db.tasks import get_tasks_page, update_db, TasksPage, acquire_lock, release_lock, get_all_tasks
+from db import tasks as tasks_db
+from model.db import TasksPage
 from model.task_model import TasksChange
 
 ROUTE = "/tasks"
@@ -29,15 +30,17 @@ def add_tasks_resources(app: FastAPI):
     @app.get(ROUTE, response_model=TasksPage)
     async def get(limit: int = 50, page_token: Optional[str] = None) -> TasksPage:
         # todo add right handling
-        return await get_tasks_page(limit, page_token=page_token)
+        return await tasks_db.get_tasks_page(limit, page_token=page_token)
 
     @app.put(ROUTE, response_model=str)  # todo add documentation of errors
     async def put(tasks_change: TasksChange) -> str:
         # todo add right handling
-        await acquire_lock()
+        await tasks_db.acquire_lock()
         try:
-            current_tasks = [task async for task in get_all_tasks()]
+            current_tasks = [task async for task in tasks_db.get_all_tasks()]
             db_changes = build_db_changes(current_tasks=current_tasks, change=tasks_change)
+            if not db_changes.task_to_update or db_changes.ids_to_remove:
+                return "No changes to perform."
             new_tasks_graph = build_new_tasks_graph(change=db_changes, current_tasks=current_tasks)
             orphan_tasks = get_orphan_tasks(new_tasks_graph)
             if orphan_tasks:
@@ -51,10 +54,11 @@ def add_tasks_resources(app: FastAPI):
                     message=f"Modification would create {len(tasks_cycle)} tasks cycle(s).",
                     cycles=[[task.id for task in cycle] for cycle in tasks_cycle],
                 )
-            await update_db(db_changes)
+            await tasks_db.update_db(db_changes)
         finally:
-            await release_lock()
-        return f"Successfully registered {len(tasks_change.tasks)} task(s)"
+            await tasks_db.release_lock()
+        return f"Deleted task(s) :{db_changes.ids_to_remove}" \
+               f"\nUpdated tasks :{[task.id for task in db_changes.task_to_update]}"
 
     @app.exception_handler(CyclesIntroduced)
     async def handle_put_error(request: Request, exception: Union[CyclesIntroduced, InconsistentTasksDependencies]):

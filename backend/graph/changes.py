@@ -1,9 +1,9 @@
 from collections import defaultdict
 from typing import List, Set, Dict, Optional
 
-from db.tasks import DbTasksChange
+from model.db import DbTasksChange, DbTask
 from graph.utils import is_task_in_dag
-from model.task_model import TasksChange, DbTask
+from model.task_model import TasksChange
 
 
 def _get_deleted_tasks_ids(change: TasksChange, current_tasks: List[DbTask]) -> Set[str]:
@@ -26,7 +26,7 @@ def _get_tasks_updated_in_dag(change: TasksChange, current_tasks: List[DbTask]):
                next_tasks_ids=sorted(updated_tasks_dependency[task.id]))
         for task in change.tasks
     ]
-    return list(filter(lambda task: task != previous_tasks[task.id], potential_content_updated_tasks))
+    return list(filter(lambda task: task != previous_tasks.get(task.id), potential_content_updated_tasks))
 
 
 def _get_next_tasks_ids_updates(current_tasks: List[DbTask],

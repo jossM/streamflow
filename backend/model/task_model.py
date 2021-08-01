@@ -2,7 +2,7 @@
 All models describing what a task is according to streamflow
 """
 import json
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
 from pydantic import BaseModel, Field, validator, root_validator
 
@@ -20,7 +20,7 @@ class CallTask(BaseModel):
     )
 
     response_name: Optional[str] = Field(
-        title="Call_name",
+        title="Call name",
         description="Name of the response data",
         default=None,
         min_length=1,
@@ -79,28 +79,25 @@ class Task(BaseModel):
         return values
 
 
-class DbTask(Task):
-    next_tasks_ids: List[str] = Field(
-        default_factory=list,
-        title="Children Tasks Ids",
-        description="List of all tasks ids that depend on this task"
-    )
-
-
 class TasksChange(BaseModel):
     dags: List[str] = Field(
         title="Dags",
         description="List of fully identified dags for which the list of tasks should correspond.",
-        min_size=1,)
+        min_size=1,
+    )
     tasks: List[Task] = Field(
         title="Tasks",
-        description="List of all the tasks that the new version of the dag should contain."
+        description="List of all the tasks that the new version of the dag should contain.",
     )
 
-    @validator("dags", "tasks")
-    def ensure_dags_supersedes_tasks_dags(cls, args: Tuple[List[str], List[Task]]):
-        dags, tasks = args
+    @root_validator
+    def _ensure_dags_supersedes_tasks_dags(cls, kwargs):
+        dags: List[str] = kwargs['dags']
+        tasks: List[Task] = kwargs['tasks']
         tasks_outside_of_dags = sorted(json.dumps(t.id) for t in tasks
                                        if not any(t.id.startswith(dag_name) for dag_name in dags))
         assert not tasks_outside_of_dags, \
             f"The following tasks are outside of edited dags {', '.join(tasks_outside_of_dags)}"
+        return kwargs
+
+
