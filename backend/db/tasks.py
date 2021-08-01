@@ -57,7 +57,7 @@ def _deserialize_downward_task(item: Dict, do_raise: bool = True) -> Optional[Db
 
 def _serialize_downward_task(task: DbTask) -> Dict:
     """Transforms a DownTask into a dynamodb item."""
-    item = task.dict(exclude={"id"})
+    item = task.dict(exclude={"id"}, exclude_defaults=True)
     item.update(id=TASK_KEY_PREFIX + task.id)
     return item
 

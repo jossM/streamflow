@@ -1,8 +1,10 @@
-from typing import Optional
+from typing import Optional, List
 from unittest.mock import AsyncMock, call
 
 import pytest
 
+from db.tasks import TASK_KEY_PREFIX
+from model.db import DbTask
 
 @pytest.fixture
 def scan_table_mock(mocker):
@@ -11,10 +13,11 @@ def scan_table_mock(mocker):
     return async_mock
 
 
-def make_scan_table_response(results=None, next_key: Optional[str]=None) -> dict:
+def make_scan_table_response(results: Optional[List[DbTask]] = None, next_key: Optional[str] = None) -> dict:
     if results is None:
         results = []
-    return {'Items': results, "LastEvaluatedKey": next_key}
+    return {'Items': [dict(id=TASK_KEY_PREFIX+t.id, **t.dict(exclude_defaults=True, exclude={"id"})) for t in results],
+            "LastEvaluatedKey": next_key}
 
 
 @pytest.fixture
