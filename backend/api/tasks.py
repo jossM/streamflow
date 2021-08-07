@@ -54,16 +54,17 @@ def add_tasks_resources(app: FastAPI):
                     message=f"Modification would create {len(tasks_cycle)} tasks cycle(s).",
                     cycles=[[task.id for task in cycle] for cycle in tasks_cycle],
                 )
+            print("updating tasks ")  # todo: properly log stuff here
             await tasks_db.update_db(db_changes)
         finally:
             await tasks_db.release_lock()
         return f"Deleted task(s) :{db_changes.ids_to_remove}" \
                f"\nUpdated tasks :{[task.id for task in db_changes.task_to_update]}"
 
-    @app.exception_handler(CyclesIntroduced)
     async def handle_put_error(request: Request, exception: Union[CyclesIntroduced, InconsistentTasksDependencies]):
         exception_data = {"error_type": type(exception).__name__}
-        exception_data.update({attr: getattr(exception, attr) for attr in dir(exception)})
+        exception_data.update(exception.__dict__)
+        # todo: log errors
         return JSONResponse(status_code=400, content=exception_data)
 
     app.exception_handler(CyclesIntroduced)(handle_put_error)

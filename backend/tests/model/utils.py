@@ -3,7 +3,7 @@ from model.db import DbTask
 
 
 def make_task(id='dag/id', **kwargs) -> Task:
-    if not kwargs:
+    if not any(key.endswith("template") for key in kwargs.keys()):
         kwargs["pod_template"] = "template"
     return Task.construct(id=id, **kwargs)
 
@@ -13,6 +13,6 @@ def make_task_dict(**kwargs) -> dict:
 
 
 def make_task_db(id='dag/id', **kwargs) -> DbTask:
-    if not kwargs:
+    if not any(key.endswith("template") for key in kwargs.keys()):
         kwargs["pod_template"] = "template"
     return DbTask(id=id, **kwargs)

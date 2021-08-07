@@ -41,3 +41,18 @@ def test_put_delete_dag(scan_table_mock, mock_task_lock, mock_update_db: AsyncMo
         ids_to_remove={existing_task.id},
         task_to_update=[]
     ))
+
+
+def test_delete_tasks_that_has_downstream(scan_table_mock, mock_task_lock, mock_update_db: AsyncMock):
+    upstream_dag = f"upstream_dag"
+    upstream_task_id = f"{upstream_dag}/task"
+    downstream_task_id = f"{dag}/downstream_task"
+    existing_tasks = [
+        make_task_db(id=upstream_task_id, next_tasks_ids=[downstream_task_id]),
+        make_task_db(id=downstream_task_id, previous_tasks_ids=[upstream_task_id]),
+    ]
+    scan_table_mock.return_value = make_scan_table_response(results=existing_tasks)
+    put_response = client.put(ROUTE, TasksChange(dags=[upstream_dag], tasks=[]).json(exclude_unset=True))
+    assert mock_task_lock.mock_calls == EXPECT_MOCK_CALLS
+    assert put_response.status_code == 400, put_response.json()
+    mock_update_db.assert_not_awaited()

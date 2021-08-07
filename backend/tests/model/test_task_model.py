@@ -21,7 +21,7 @@ def test_task_can_only_contain_one_template():
 
 
 def test_task_must_contain_at_most_one_template():
-    task_data = make_task_dict(call_templates=None)
+    task_data = make_task_dict(call_templates="template", pod_template="template")
     with raises(ValidationError):
         DbTask(**task_data)
 
