@@ -27,7 +27,7 @@ def test_put_valid_object_in_empty_dag(scan_table_mock, mock_task_lock, mock_upd
     assert mock_task_lock.mock_calls == EXPECT_MOCK_CALLS
     mock_update_db.assert_awaited_once_with(DbTasksChange(
         ids_to_remove=set(),
-        task_to_update=[DbTask(next_tasks_ids=[], **task.dict())]
+        tasks_to_update=[DbTask(next_tasks_ids=[], **task.dict())]
     ))
 
 
@@ -39,7 +39,7 @@ def test_put_delete_dag(scan_table_mock, mock_task_lock, mock_update_db: AsyncMo
     assert mock_task_lock.mock_calls == EXPECT_MOCK_CALLS
     mock_update_db.assert_awaited_once_with(DbTasksChange(
         ids_to_remove={existing_task.id},
-        task_to_update=[]
+        tasks_to_update=[]
     ))
 
 
@@ -56,3 +56,34 @@ def test_delete_tasks_that_has_downstream(scan_table_mock, mock_task_lock, mock_
     assert mock_task_lock.mock_calls == EXPECT_MOCK_CALLS
     assert put_response.status_code == 400, put_response.json()
     mock_update_db.assert_not_awaited()
+
+
+def test_put_add_downstream_task(scan_table_mock, mock_task_lock, mock_update_db: AsyncMock):
+    upstream_task_id = f"upstream_dag/task"
+    existing_db_task = make_task_db(id=upstream_task_id, next_tasks_ids=[])
+
+    scan_table_mock.return_value = make_scan_table_response(results=[existing_db_task])
+    new_downstream_task = make_task(id=f"{dag}/downstream_task", previous_tasks_ids=[upstream_task_id])
+    put_response = client.put(ROUTE, TasksChange(dags=[dag], tasks=[new_downstream_task]).json(exclude_unset=True))
+    assert mock_task_lock.mock_calls == EXPECT_MOCK_CALLS
+    assert put_response.status_code == 200, put_response.json()
+    mock_update_db.assert_awaited_once_with(DbTasksChange(
+        ids_to_remove=set(),
+        tasks_to_update=[
+            DbTask(**new_downstream_task.dict()),
+            DbTask(
+                **existing_db_task.dict(exclude_unset=True, exclude={"next_tasks_ids"}),
+                next_tasks_ids=[new_downstream_task.id]
+            ),
+        ]
+    ))
+
+
+def test_put_task_with_invalid_upstream_task(scan_table_mock, mock_task_lock, mock_update_db: AsyncMock):
+    scan_table_mock.return_value = make_scan_table_response(results=[])
+    task = make_task(id=f"{dag}/task", previous_tasks_ids=[f"other_{dag}/non_existant_task"])
+    put_response = client.put(ROUTE, TasksChange(dags=[dag], tasks=[task]).json(exclude_unset=True))
+    assert mock_task_lock.mock_calls == EXPECT_MOCK_CALLS
+    assert put_response.status_code == 400, put_response.json()
+    mock_update_db.assert_not_awaited()
+

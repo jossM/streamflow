@@ -39,7 +39,7 @@ def add_tasks_resources(app: FastAPI):
         try:
             current_tasks = [task async for task in tasks_db.get_all_tasks()]
             db_changes = build_db_changes(current_tasks=current_tasks, change=tasks_change)
-            if not db_changes.task_to_update and not db_changes.ids_to_remove:
+            if not db_changes.tasks_to_update and not db_changes.ids_to_remove:
                 return "No changes to perform."
             new_tasks_graph = build_new_tasks_graph(change=db_changes, current_tasks=current_tasks)
             orphan_tasks = get_orphan_tasks(new_tasks_graph)
@@ -59,7 +59,7 @@ def add_tasks_resources(app: FastAPI):
         finally:
             await tasks_db.release_lock()
         return f"Deleted task(s) :{db_changes.ids_to_remove}" \
-               f"\nUpdated tasks :{[task.id for task in db_changes.task_to_update]}"
+               f"\nUpdated tasks :{[task.id for task in db_changes.tasks_to_update]}"
 
     async def handle_put_error(request: Request, exception: Union[CyclesIntroduced, InconsistentTasksDependencies]):
         exception_data = {"error_type": type(exception).__name__}

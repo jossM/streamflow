@@ -33,25 +33,39 @@ def _get_next_tasks_ids_updates(current_tasks: List[DbTask],
                                 updated_tasks: Optional[List[DbTask]] = None,
                                 deleted_ids: Optional[Set[str]] = None):
     """List all the tasks changes that must be changed to apply the relevant task edition / suppression"""
+    updated_tasks_map: Dict[str, DbTask]
     if updated_tasks is None:
-        updated_tasks = []
+        updated_tasks_map = {}
+    else:
+        updated_tasks_map = {task.id: task for task in updated_tasks}
     if deleted_ids is None:
-        deleted_ids = {}
-    content_updated_tasks_id = {task.id for task in updated_tasks}
-    edited_task_ids = content_updated_tasks_id | deleted_ids
-    previous_tasks: Dict[str, DbTask] = {task.id: task for task in current_tasks}
-    potential_graph_updated_tasks = [
+        deleted_ids = set()
+    current_tasks_map: Dict[str, DbTask] = {task.id: task for task in current_tasks}
+    edited_task_ids = deleted_ids | set(updated_tasks_map.keys())
+    affected_upstream_ids = set()
+    for task_id in edited_task_ids:
+        if task_id not in current_tasks_map and task_id not in deleted_ids:
+            new_previous_tasks_ids = set(updated_tasks_map[task_id].previous_tasks_ids)
+            all_possible_tasks_ids = set(updated_tasks_map.keys()) | set(current_tasks_map.keys())
+            affected_upstream_ids.update(new_previous_tasks_ids & all_possible_tasks_ids - edited_task_ids)
+            continue
+        if task_id in deleted_ids:
+            remaining_previous_task_ids = set()
+        else:
+            remaining_previous_task_ids = set(updated_tasks_map[task_id].previous_tasks_ids)
+        affected_upstream_ids.update(set(current_tasks_map[task_id].previous_tasks_ids) - remaining_previous_task_ids)
+    return [
         DbTask(
-            **task.dict(exclude={"next_tasks_ids"}),
+            **current_tasks_map[task_id].dict(exclude={"next_tasks_ids"}),
             next_tasks_ids=sorted(
-                {task_id for task_id in task.next_tasks_ids if task_id not in edited_task_ids}
-                | {updated_task.id for updated_task in updated_tasks if task.id in updated_task.previous_tasks_ids}
+                {task_id for task_id in current_tasks_map[task_id].next_tasks_ids
+                 if task_id not in edited_task_ids}
+                | {task.id for task in updated_tasks
+                   if current_tasks_map[task_id].id in task.previous_tasks_ids}
             )
         )
-        for task in current_tasks
-        if not task.id not in edited_task_ids and set(task.next_tasks_ids) & edited_task_ids
+        for task_id in affected_upstream_ids
     ]
-    return list(filter(lambda task: task != previous_tasks[task.id], potential_graph_updated_tasks))
 
 
 def build_db_changes(change: TasksChange, current_tasks: List[DbTask]) -> DbTasksChange:
@@ -62,7 +76,7 @@ def build_db_changes(change: TasksChange, current_tasks: List[DbTask]) -> DbTask
                                                       deleted_ids=deleted_tasks_ids,
                                                       updated_tasks=content_updated_tasks)
     change = DbTasksChange(
-        task_to_update=sorted(content_updated_tasks + graph_updated_tasks, key=lambda task: task.id),
+        tasks_to_update=sorted(content_updated_tasks + graph_updated_tasks, key=lambda task: task.id),
         ids_to_remove=deleted_tasks_ids,
     )
     return change
@@ -71,5 +85,5 @@ def build_db_changes(change: TasksChange, current_tasks: List[DbTask]) -> DbTask
 def build_new_tasks_graph(change: DbTasksChange, current_tasks: List[DbTask]) -> List[DbTask]:
     """Create the new list of tasks effective after the DbChanges has been performed"""
     all_tasks: Dict[str, DbTask] = {task.id: task for task in current_tasks if task.id not in change.ids_to_remove}
-    all_tasks.update({task.id: task for task in change.task_to_update})
+    all_tasks.update({task.id: task for task in change.tasks_to_update})
     return sorted(all_tasks.values(), key=lambda task: task.id)

@@ -24,8 +24,18 @@ class TasksPage(BaseModel):
 
 class DbTasksChange(BaseModel):
     ids_to_remove: Set[str] = Field(description="List of all task ids to be deleted.")
-    task_to_update: List[DbTask] = Field(description="List of all task to be created or updated")
+    tasks_to_update: List[DbTask] = Field(description="List of all task to be created or updated")
 
     def __len__(self):
-        return len(self.ids_to_remove) + len(self.task_to_update)
+        return len(self.ids_to_remove) + len(self.tasks_to_update)
 
+    def __eq__(self, other: 'DbTasksChange'):
+        if type(self) != type(other) or self.ids_to_remove != other.ids_to_remove:
+            return False
+        other_tasks_to_update = list(other.tasks_to_update)
+        for task in self.tasks_to_update:
+            try:
+                other_tasks_to_update.pop(other_tasks_to_update.index(task))
+            except ValueError:
+                return False
+        return len(other_tasks_to_update) == 0  # todo: add test

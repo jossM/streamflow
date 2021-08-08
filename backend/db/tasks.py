@@ -126,7 +126,7 @@ async def _batch_changes(tasks_list: DbTasksChange):
 def _sync_batch_changes(tasks_list: DbTasksChange):
     """Dummy function to perform the write in db"""
     with TASK_TABLE.batch_writer() as batch:
-        for task in tasks_list.task_to_update:
+        for task in tasks_list.tasks_to_update:
             batch.put_item(Item=_serialize_downward_task(task))
         for task_id in tasks_list.ids_to_remove:
             batch.delete_item(Key={"id": task_id})
@@ -134,12 +134,12 @@ def _sync_batch_changes(tasks_list: DbTasksChange):
 
 async def update_db(db_changes: DbTasksChange) -> None:
     all_change_batches = streaming.group(
-        itertools.chain(db_changes.task_to_update, db_changes.ids_to_remove),
+        itertools.chain(db_changes.tasks_to_update, db_changes.ids_to_remove),
         25  # dynamodb does not support more than 25 elements in a batch call at the moment
     )
     for change_batch_elements in all_change_batches:
         task_change_batch = DbTasksChange(
-            task_to_update=[update for update in change_batch_elements if isinstance(update, DbTask)],
+            tasks_to_update=[update for update in change_batch_elements if isinstance(update, DbTask)],
             ids_to_remove={deletion for deletion in change_batch_elements if isinstance(deletion, str)},
         )
         await _batch_changes(task_change_batch)
