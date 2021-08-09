@@ -37,7 +37,7 @@ def add_tasks_resources(app: FastAPI):
         # todo add right handling
         await tasks_db.acquire_lock()
         try:
-            current_tasks = [task async for task in tasks_db.get_all_tasks()]
+            current_tasks = {task.id: task async for task in tasks_db.get_all_tasks()}
             db_changes = build_db_changes(current_tasks=current_tasks, change=tasks_change)
             if not db_changes.tasks_to_update and not db_changes.ids_to_remove:
                 return "No changes to perform."

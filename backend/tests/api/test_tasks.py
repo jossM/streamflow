@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from main_api import app
 from api.tasks import ROUTE
-from model.db import TasksPage, DbTasksChange
+from model.db import TasksPage, DbTasksChange, Task
 from model.task_model import TasksChange
 from tests.model.utils import make_task, make_task_db
 from tests.db.mocked_tasks import *
@@ -87,3 +87,27 @@ def test_put_task_with_invalid_upstream_task(scan_table_mock, mock_task_lock, mo
     assert put_response.status_code == 400, put_response.json()
     mock_update_db.assert_not_awaited()
 
+
+def test_put_circular_task(scan_table_mock, mock_task_lock, mock_update_db: AsyncMock):
+    scan_table_mock.return_value = make_scan_table_response(results=[])
+    task_id = f"{dag}/circular_task"
+    task = make_task(id=task_id, previous_tasks_ids=[task_id])
+    put_response = client.put(ROUTE, TasksChange(dags=[dag], tasks=[task]).json(exclude_unset=True))
+    assert mock_task_lock.mock_calls == EXPECT_MOCK_CALLS
+    assert put_response.status_code == 400, put_response.json()
+    mock_update_db.assert_not_awaited()
+
+
+def test_add_circular_link_between_tasks(scan_table_mock, mock_task_lock, mock_update_db: AsyncMock):
+    upstream_task_id = f"{dag}/taskA"
+    downstream_task_id = f"dagB/taskB"
+    upstream_task_db = make_task_db(id=upstream_task_id, next_tasks_ids=[downstream_task_id])
+    existing_tasks = [upstream_task_db, make_task_db(id=downstream_task_id, previous_tasks_ids=[upstream_task_id])]
+    scan_table_mock.return_value = make_scan_table_response(results=existing_tasks)
+    new_upstream_task = Task(
+        **upstream_task_db.dict(exclude={"next_tasks_ids", "previous_tasks_ids"}),
+        previous_tasks_ids=[downstream_task_id])  # this will introduce a cycle
+    put_response = client.put(ROUTE, TasksChange(dags=[dag], tasks=[new_upstream_task]).json(exclude_unset=True))
+    assert mock_task_lock.mock_calls == EXPECT_MOCK_CALLS
+    assert put_response.status_code == 400, put_response.json()
+    mock_update_db.assert_not_awaited()
