@@ -1,23 +1,41 @@
 """
 All models describing what a task is according to streamflow
 """
-from typing import Any, Dict, List
+import json
+from typing import Optional, List
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, root_validator
 
-# should be read from bottom to top
+from config import DAG_DELIMITER
 
 
 class CallTask(BaseModel):
-    setup_arguments: List[Dict] = Field(  # todo: handle this part
-        default_factory=list,
-        title="Step Arguments",
-        description="All arguments to call the function defined with STREAMFLOW.CALL_ENV_SETUP "
-                    "to set up environment to be injected in template",
+    url_template: str = Field(
+        title="Url",
+        description="The Jinja formatted url template that needs to will be called"
+    )
+    method: str = Field(
+        title="Method to call the api",
+        description=""
+    )
+
+    response_name: Optional[str] = Field(
+        title="Call name",
+        description="Name of the response data",
+        default=None,
+        min_length=1,
+        max_length=150,
+    )
+    log_response: bool = Field(
+        title="Log response",
+        description="Whether the response data can be logged or not.",
+        default=False,
     )
     template: str = Field(
         title="Step Arguments",
         description="jinja template returning the json object corresponding to requests arguments.",
+        default="",
+        max_length=10000,
     )
 
 
@@ -26,25 +44,60 @@ class Task(BaseModel):
                     description="Uniquely identifies the task. \".\" element will serve to indicate dag(s) of the task",
                     min_length=1,
                     max_length=1000)
-    pod: Any = Field(
+
+    pod_template: Optional[str] = Field(
         default=None,
         title="pod_template",
         description="The Jinja template of the pod that must be run by kubernetes",
     )
-    call: CallTask = Field(
+
+    call_templates: Optional[List[CallTask]] = Field(
         default=None,
         title="call_template",
-        description="The Jinja template of the HTTP call that must be performed"
+        description="The Jinja template of the HTTP call that must be performed",
+        min_items=1,
+        max_items=10,
     )
 
-    next_tasks_ids: List[str] = Field(
+    previous_tasks_ids: List[str] = Field(
         default_factory=list,
-        title="Children_Tasks",
-        description="List of all tasks ids that depend on this task"
+        title="Parent Tasks Ids",
+        description="List of all this task depends on",
     )
 
-    @validator("pod", "call")
-    def check_at_least_one(cls, all_templates):
-        # pydantic.ValidationError will be raised at the end
-        assert sum(template is None for template in all_templates) != 1, \
+    @validator("id")
+    def _check_task_id(cls, task_id: str):
+        # pydantic.ValidationError will be raised at the end so Exception type does not matter
+        assert DAG_DELIMITER in task_id, \
+            f'A task must always belong to a dag. A task should always contain one char "{DAG_DELIMITER}"'
+        return task_id
+
+    @root_validator
+    def _check_at_least_one_template(cls, values):
+        assert sum(bool(values.get(field)) for field in cls.__fields__ if "template" in field) == 1, \
             "Exactly one of pod_template or call_template must be filled"
+        return values
+
+
+class TasksChange(BaseModel):
+    dags: List[str] = Field(
+        title="Dags",
+        description="List of fully identified dags for which the list of tasks should correspond.",
+        min_size=1,
+    )
+    tasks: List[Task] = Field(
+        title="Tasks",
+        description="List of all the tasks that the new version of the dag should contain.",
+    )
+
+    @root_validator
+    def _ensure_dags_supersedes_tasks_dags(cls, kwargs):
+        dags: List[str] = kwargs['dags']
+        tasks: List[Task] = kwargs['tasks']
+        tasks_outside_of_dags = sorted(json.dumps(t.id) for t in tasks
+                                       if not any(t.id.startswith(dag_name) for dag_name in dags))
+        assert not tasks_outside_of_dags, \
+            f"The following tasks are outside of edited dags {', '.join(tasks_outside_of_dags)}"
+        return kwargs
+
+
