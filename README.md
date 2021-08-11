@@ -8,4 +8,4 @@ Another common issue with airflow is the lack of ability to handle event based l
 This is an attempt to try and solve this issue by revamping the architecture to distribute the work and by applying an event based logic to the executions.
 
 The proposed architecture of the project is the following :
-[Architecture schema](https://docs.google.com/drawings/d/e/2PACX-1vQddQMn67sqX9lrnsMMiv5_492TXWmeqEhl_axmJ0bv_haQnsv3zKkJuVjb2p1M-vXt1_-QhKa1_UiC/pub?w=960&amp;h=720)
+![Architecture schema](https://docs.google.com/drawings/d/e/2PACX-1vQddQMn67sqX9lrnsMMiv5_492TXWmeqEhl_axmJ0bv_haQnsv3zKkJuVjb2p1M-vXt1_-QhKa1_UiC/pub?w=960&amp;h=720)
