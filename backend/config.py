@@ -15,7 +15,8 @@ def _get_os_env_variable(environment_key: str, default: _Opt[str] = None) -> str
     return env_value
 
 
-LOGGING_LEVEL: str = getattr(_logging, _get_os_env_variable(f"LOGGING_LEVEL", "info").upper())
-TASKS_TABLE: str = _get_os_env_variable(f"TASKS_TABLE_NAME")
-TASKS_RUNS_TABLE: str = _get_os_env_variable(f"TASKS_RUNS_TABLE_NAME")
-DAG_DELIMITER: str = _get_os_env_variable(f"DAG_DELIMITER_CHAR", "/")
+LOGGING_LEVEL: str = getattr(_logging, _get_os_env_variable("LOGGING_LEVEL", "info").upper())
+TASKS_TABLE: str = _get_os_env_variable("TASKS_TABLE_NAME")
+TASKS_RUNS_TABLE: str = _get_os_env_variable("TASKS_RUNS_TABLE_NAME")
+DAG_DELIMITER: str = _get_os_env_variable("DAG_DELIMITER_CHAR", "/")
+TASK_STREAM_NAME: str = _get_os_env_variable("TASK_STREAM_NAME")
