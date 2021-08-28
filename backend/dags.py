@@ -1,8 +1,8 @@
 from typing import Union
 
 from config import DAG_DELIMITER
-from model.db import DbTask
-from model.task_model import Task
+from db.db_model import DbTask
+from global_models.task_model import Task
 
 
 def get_task_dag(task: Union[Task, DbTask], dag_level: int):

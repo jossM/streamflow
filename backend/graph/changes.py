@@ -1,8 +1,8 @@
 from typing import List, Dict
 
-from model.db import DbTasksChange, DbTask
+from db.db_model import DbTasksChange, DbTask
 from graph.utils import is_task_in_dag
-from model.task_model import TasksChange
+from global_models.task_model import TasksChange
 
 
 def build_db_changes(change: TasksChange, current_tasks: Dict[str, DbTask]) -> DbTasksChange:

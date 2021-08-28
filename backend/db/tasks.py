@@ -9,8 +9,8 @@ from pydantic import ValidationError
 
 import config
 from db.dynamodb import dynamodb
-from model.db import TasksPage, DbTasksChange, DbTask
-from model.pagination import serialize_token, deserialize_token
+from db.db_model import TasksPage, DbTasksChange, DbTask
+from db.pagination_model import serialize_token, deserialize_token
 from logs import logger
 import streaming
 

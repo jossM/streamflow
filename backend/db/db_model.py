@@ -2,7 +2,7 @@ from typing import List, Optional, Set
 
 from pydantic import BaseModel, Field
 
-from model.task_model import Task
+from global_models.task_model import Task
 
 
 class DbTask(Task):

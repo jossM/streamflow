@@ -2,8 +2,8 @@ from itertools import permutations
 from typing import List, Set
 from unittest.mock import call
 
-from model.db import DbTask, DbTasksChange
-from model.task_model import Task
+from db.db_model import DbTask, DbTasksChange
+from global_models.task_model import Task
 
 
 def make_task(id='dag/id', **kwargs) -> Task:

@@ -1,6 +1,6 @@
 from typing import List
 
-from model.task_model import Task
+from global_models.task_model import Task
 
 
 def is_task_in_dag(task_id: str, dags: List[str]) -> bool:

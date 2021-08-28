@@ -6,8 +6,8 @@ from fastapi.responses import JSONResponse
 from graph.changes import build_db_changes, build_new_tasks_graph
 from graph.validation import get_orphan_tasks, get_tasks_cycles
 from db import tasks as tasks_db
-from model.db import TasksPage
-from model.task_model import TasksChange
+from db.db_model import TasksPage
+from global_models.task_model import TasksChange
 
 ROUTE = "/tasks"
 

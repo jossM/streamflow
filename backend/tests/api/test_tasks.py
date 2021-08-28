@@ -2,9 +2,9 @@ from fastapi.testclient import TestClient
 
 from main_api import app
 from api.tasks import ROUTE
-from model.db import TasksPage, DbTasksChange, Task
-from model.task_model import TasksChange
-from tests.model.utils import make_task, make_task_db
+from db.db_model import TasksPage, DbTasksChange
+from global_models.task_model import TasksChange, Task
+from tests.global_models.utils import make_task, make_task_db
 from tests.db.mocked_tasks import *
 
 

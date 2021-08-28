@@ -1,7 +1,7 @@
 import pytest
 from typing import Dict
 
-from model.pagination import serialize_token, deserialize_token, DynamoPageToken
+from db.pagination_model import serialize_token, deserialize_token, DynamoPageToken
 
 
 @pytest.fixture

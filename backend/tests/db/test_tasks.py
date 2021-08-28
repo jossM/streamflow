@@ -1,6 +1,6 @@
 from pytest import fixture
 
-from model.db import DbTask
+from db.db_model import DbTask
 from db.tasks import _deserialize_downward_task, _serialize_downward_task
 
 

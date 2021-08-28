@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, call
 import pytest
 
 from db.tasks import TASK_KEY_PREFIX
-from model.db import DbTask
+from db.db_model import DbTask
 
 @pytest.fixture
 def scan_table_mock(mocker):
