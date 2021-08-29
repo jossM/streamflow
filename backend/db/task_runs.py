@@ -12,7 +12,7 @@ from db.dynamodb import dynamodb
 from db.db_model import TasksPage, DbTasksChange, DbTask
 from db.pagination_model import serialize_token, deserialize_token
 from logs import logger
-import streaming
+from utils import streaming
 
 TASK_TABLE = dynamodb.Table(config.TASKS_TABLE) if not config.TEST_ENV else None
 LOCK_TASK_ID = "TASK_LOCK"  # todo use this as env config variable
