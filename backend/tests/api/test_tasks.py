@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from main_api import app
+from api.streamflow_api import app
 from api.tasks import ROUTE
 from db.db_model import TasksPage, DbTasksChange
 from global_models.task_model import TasksChange, Task

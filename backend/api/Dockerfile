@@ -16,7 +16,8 @@ RUN groupadd -g $GID -o streamflow  \
     && useradd -u $UID -g streamflow -m -d /home/streamflow -s /sbin/nologin -c "streamflow user" streamflow
 USER streamflow
 
-COPY . /streamflow-backend
+COPY --chown=streamflow . /streamflow-backend
+RUN echo "from api.streamflow_api import app" > /streamflow-backend/main_api.py
 
 # run api with :
 # gunicorn --worker-class gevent --worcakers 8 --bind 0.0.0.0:$STREAM_FLOW_PORT api.app:app --max-requests 10000 --timeout 5 --keep-alive 5 --log-level info

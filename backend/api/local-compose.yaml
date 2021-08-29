@@ -10,10 +10,10 @@ services:
         UID: "$UID"
         GID: "$GID"
     environment:
-      STREAM_FLOW.PORT: "8080"
       STREAMFLOW.MODE: "dev"
       STREAMFLOW.TASKS_TABLE_NAME: "streamflow_tasks"
       STREAMFLOW.TASKS_RUNS_TABLE_NAME: "streamflow_task_runs"
+      STREAMFLOW.TASK_STREAM_NAME: "task_message_stream"  # todo add in tf
       AWS_DEFAULT_REGION: "$AWS_DEFAULT_REGION"
     restart: on-failure
     ports:
@@ -22,4 +22,4 @@ services:
       - $HOME/.aws/:/home/streamflow/.aws/:ro
       - ..:/local-src
     working_dir: /local-src
-    command: ["uvicorn", "main_api:app", "--reload", "--host", "0.0.0.0", "--port", "8080"]
+    command: bash -c "cp /streamflow-backend/main_api.py /local-src && uvicorn main_api:app --reload --host 0.0.0.0 --port 8080"
