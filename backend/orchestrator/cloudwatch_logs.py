@@ -113,3 +113,21 @@ class LogSender(StreamHandler):
     def flush(self) -> None:
         for log_batch in streaming.group(sorted(self._local_log_queue, key=attrgetter("timestamp")), 10000):
             await self._send_log_batch(log_batch)
+
+
+class DummyLogSender(StreamHandler):
+    """Dummy class of log server for local development"""
+    def __init__(self, log_formatter: Callable[[Log], str]):
+        super().__init__()
+        logging.warning("Dummy log server is used. Execution logs will probably not be persisted in cloudwatch.")
+        self.log_formatter = log_formatter
+
+    async def send_service_logs(self, service_logs: List[Log]) -> None:
+        """ Sends all logs from service and local buffered logs in a time increasing order"""
+
+        if not service_logs:
+            logging.info("no log to send for this call")
+            return
+        else:
+            for log in service_logs:
+                logging.log(level=log.log_level.value, msg=f"[{log.timestamp.isoformat()}] " + self.log_formatter(log))
