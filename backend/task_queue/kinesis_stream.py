@@ -1,6 +1,4 @@
 import asyncio
-from dataclasses import dataclass
-from datetime import datetime
 from typing import List, Optional, Tuple
 
 import backoff
@@ -9,13 +7,14 @@ from botocore.exceptions import ClientError
 
 import config
 from logs import logger
+from task_queue.task_message_model import ReadRecord
 
 kinesis = boto3.resource("kinesis") if not config.TEST_ENV else None
 
 
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)
 async def get_shard_ids() -> List[str]:
-    """ List all shards of the """
+    """List all shard ids of the task stream"""
     stream = await asyncio.to_thread(kinesis.describe_stream, StreamName=config.TASK_STREAM_NAME)
     try:
         return [shard["ShardId"] for shard in stream["StreamDescription"]["Shards"]]
@@ -25,7 +24,7 @@ async def get_shard_ids() -> List[str]:
 
 
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)
-async def get_shard_iterator(shard_id: str, sequence_number: Optional[str] = None) -> str:
+def get_shard_iterator(shard_id: str, sequence_number: Optional[str] = None) -> str:
     """Retrieve a shard iterator in a shard starting"""
     kwargs = dict(
         StreamName=config.TASK_STREAM_NAME,
@@ -39,8 +38,7 @@ async def get_shard_iterator(shard_id: str, sequence_number: Optional[str] = Non
             StartingSequenceNumber=sequence_number,
         )
 
-    response = await asyncio.to_thread(
-        kinesis.get_shard_iterator,
+    response = kinesis.get_shard_iterator(
         StreamName=config.TASK_STREAM_NAME,
         ShardId=shard_id,
         ShardIteratorType="TRIM_HORIZON",
@@ -52,22 +50,16 @@ async def get_shard_iterator(shard_id: str, sequence_number: Optional[str] = Non
         raise
 
 
-@dataclass(frozen=True)
-class Record:
-    """Represents a kinesis record"""
-    sequence_number: str
-    data: bytes
-    partition_key: str
-    timestamp: datetime
-
-
 class ExpiredIterator(Exception):
     pass
 
 
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)
-async def get_records(shard_iterator: str) -> Tuple[List[Record], Optional[str]]:
-    """Get record in the shard and the next shard iterator"""
+async def get_shard_records(shard_iterator: str) -> Tuple[List[ReadRecord], Optional[str]]:
+    """
+    Get record in the shard and the next shard iterator.
+    As shard iterator have limited time value the function is not async
+    """
     try:
         response = await asyncio.to_thread(
             kinesis.get_records,
@@ -82,7 +74,7 @@ async def get_records(shard_iterator: str) -> Tuple[List[Record], Optional[str]]
         raise kinesis_error
     try:
         return [
-            Record(
+            ReadRecord(
                 sequence_number=record["SequenceNumber"],
                 timestamp=record["ApproximateArrivalTimestamp"],
                 data=record["Data"],
@@ -93,3 +85,5 @@ async def get_records(shard_iterator: str) -> Tuple[List[Record], Optional[str]]
     except KeyError:
         logger.error(f"Failed to parse kinesis response {response}")
         raise
+
+
