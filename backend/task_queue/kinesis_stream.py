@@ -85,5 +85,3 @@ async def get_shard_records(shard_iterator: str) -> Tuple[List[ReadRecord], Opti
     except KeyError:
         logger.error(f"Failed to parse kinesis response {response}")
         raise
-
-
