@@ -1,7 +1,6 @@
 from pydantic import ValidationError
 from pytest import raises
 
-from global_models.task_model import CallTask
 from db.db_model import DbTask
 from tests.global_models.utils import make_task_dict
 
