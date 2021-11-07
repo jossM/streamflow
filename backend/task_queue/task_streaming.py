@@ -3,7 +3,7 @@ from typing import Iterator, Dict, List, Optional
 
 from logs import logger
 from task_queue import kinesis_stream
-from task_queue.task_message_model import TaskChangeMessage, ReadRecord, deserialize_message, serialize_message
+from task_queue.task_message_model import TaskTriggerMessage, ReadRecord, deserialize_message, serialize_message
 from utils.shuffle import random_shuffle
 
 
@@ -14,7 +14,7 @@ class _ShardAdvancement:
     sequence_number: str
 
 
-async def get_message_stream() -> Iterator[Optional[TaskChangeMessage]]:
+async def get_message_stream() -> Iterator[Optional[TaskTriggerMessage]]:
     """Orchestrating function to get records from the kinesis stream."""
     shard_advancement: Dict[str, _ShardAdvancement] = dict()
     while True:
@@ -52,5 +52,5 @@ async def get_message_stream() -> Iterator[Optional[TaskChangeMessage]]:
             shard_advancement[shard_id].sequence_number = records[-1].sequence_number
 
 
-async def push_message(message: TaskChangeMessage):
+async def push_message(message: TaskTriggerMessage):
     pass  # todo:

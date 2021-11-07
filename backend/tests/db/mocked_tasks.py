@@ -6,6 +6,7 @@ import pytest
 from db.tasks import TASK_KEY_PREFIX
 from db.db_model import DbTask
 
+
 @pytest.fixture
 def scan_table_mock(mocker):
     async_mock = AsyncMock()

@@ -9,7 +9,7 @@ import config
 from logs import logger
 from task_queue.task_message_model import ReadRecord
 
-kinesis = boto3.resource("kinesis") if not config.TEST_ENV else None
+kinesis = boto3.client("kinesis") if not config.TEST_ENV else None
 
 
 @backoff.on_exception(backoff.constant, ClientError, interval=1, max_time=10)

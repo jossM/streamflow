@@ -6,6 +6,9 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, validator
 
+from global_models.task_model import Task
+from orchestrator.context_lib import CustomContext
+
 
 class EventType(str, Enum):
     START = "START"
@@ -13,11 +16,11 @@ class EventType(str, Enum):
     END = "END"
 
 
-class TaskChangeMessage(BaseModel):  # todo: move this in global models
-    task_id: str
+class TaskTriggerMessage(BaseModel):  # todo: move this in global models
     event_type: EventType
-    execution_id: str  # todo should contain all context information
-    moment: Optional[datetime] = None
+    execution_id: str
+    execution_context: CustomContext
+    task: Task
     reason: Optional[str] = None  # for log purpose only
     unique_key: Optional[str] = Field(description="Uniquely identifies the task message. Should not contain any space."
                                                   "Filled when the message is read only.",
@@ -45,17 +48,17 @@ class ReadRecord(WrittenRecord):
     timestamp: datetime
 
 
-def serialize_message(message: TaskChangeMessage) -> WrittenRecord:
+def serialize_message(message: TaskTriggerMessage) -> WrittenRecord:
     return WrittenRecord(
         data=message.json(exclude_defaults=True, exclude={"unique_key", "moment"}).encode('utf8'),
         partition_key=message.execution_id,
     )
 
 
-def deserialize_message(record: ReadRecord) -> TaskChangeMessage:
+def deserialize_message(record: ReadRecord) -> TaskTriggerMessage:
     data = json.loads(record.data.decode("utf8"))  # todo: handle format error here
     [data.pop(key, None) for key in {"moment", "unique_key"}]
-    return TaskChangeMessage(
+    return TaskTriggerMessage(
         **data,
         moment=record.timestamp,
         unique_key=f"{record.partition_key}_{record.sequence_number}"

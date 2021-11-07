@@ -6,10 +6,11 @@ from typing import Callable
 import click
 
 import config
+from logs import logger
 from orchestrator import cloudwatch_logs
 from orchestrator.http_task_handler import handle_http_task
 from orchestrator.main_orchestrator import start_cmd
-from task_queue.task_message_model import TaskChangeMessage
+from task_queue.task_message_model import TaskTriggerMessage
 
 
 def build_shutdown_callback(loop: asyncio.AbstractEventLoop,
@@ -27,14 +28,14 @@ def build_shutdown_callback(loop: asyncio.AbstractEventLoop,
 
 
 @start_cmd.command(name="task")
-@click.argument('task_json', type=click.STRING, help="json respecting the TaskChangeMessage formatting.")
+@click.argument('task_json', type=click.STRING, help="json respecting the TaskTriggerMessage formatting.")
 @click.option('--orchestrator_id', type=click.STRING, help="Id of the scheduler for observability.")
 @click.option("--no-orchestrator", is_flag=True, help="Required if orchestrator id isn't filled")
 def handle_task_cmd(task_json: str, orchestrator_id: str = None, no_orchestrator: bool = False):
-    task_change = TaskChangeMessage.parse_raw(task_json)
+    task_change: TaskTriggerMessage = TaskTriggerMessage.parse_raw(task_json)
 
     def log_formatter(log: cloudwatch_logs.Log):
-        return f"{log.log_level} - {log.message}"  # todo make this configurable
+        return "{log_level} - {message}".format(**log.dict())  # todo: make the log format configurable
 
     if config.CLOUDWATCH_LOG_GROUP:
         log_sender = cloudwatch_logs.LogSender(
@@ -42,7 +43,7 @@ def handle_task_cmd(task_json: str, orchestrator_id: str = None, no_orchestrator
             stream_name=cloudwatch_logs.make_stream_name(task_change.unique_key),
             log_formatter=log_formatter,
         )
-        logging.getLogger().addHandler(log_sender)
+        logger.addHandler(log_sender)
     else:
         log_sender = cloudwatch_logs.DummyLogSender(log_formatter=log_formatter)
 
@@ -54,7 +55,7 @@ def handle_task_cmd(task_json: str, orchestrator_id: str = None, no_orchestrator
     task_interrupt_queue = asyncio.Queue()
     loop.add_signal_handler(signal.SIGINT, build_shutdown_callback(
         loop=loop,
-        max_shutdown_seconds=1,  # todo replace max_shutdown here
+        max_shutdown_seconds=task_change.task.max_execution_time,
         task_interrupt_queue=task_interrupt_queue
     ))
 

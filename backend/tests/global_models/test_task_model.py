@@ -11,17 +11,9 @@ def test_db_task_validation_can_pass():
     DbTask(**task_data)
 
 
-def test_task_can_only_contain_one_template():
-    task_data = make_task_dict(
-        pod_template="template",
-        call_templates=[CallTask(url_template="url", method="POST")]
-    )
-    with raises(ValidationError):
-        DbTask(**task_data)
-
-
-def test_task_must_contain_at_most_one_template():
-    task_data = make_task_dict(call_templates="template", pod_template="template")
+def test_task_must_contain_one_template():
+    task_data = make_task_dict()
+    task_data.pop("call_template", None)
     with raises(ValidationError):
         DbTask(**task_data)
 

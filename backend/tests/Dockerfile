@@ -1,6 +1,6 @@
 FROM python:3.9-slim-buster
 
-ENV STREAMFLOW.TEST_MODE="True"
+ENV STREAMFLOW__TEST_MODE="True"
 
 COPY requirements.txt /requirements.txt
 COPY api/requirements.txt /requirements_api.txt
@@ -10,7 +10,7 @@ RUN  pip3 install --upgrade pip \
     && pip3 install -r /requirements.txt \
     && pip3 install -r /requirements_api.txt \
     && pip3 install -r /requirements_tests.txt \
-    && pip3 install pipdeptree==2.0.0 \
+    && pip3 install pipdeptree==2.2.0 \
     && rm -rf ~/.cache
 RUN pipdeptree --warn fail
 

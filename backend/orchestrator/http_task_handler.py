@@ -3,14 +3,17 @@ import logging
 import os
 
 import backoff
+from jinja2.sandbox import SandboxedEnvironment
 import pydantic
 from pydantic import BaseModel, Field
 import requests
 from typing import Optional, List, Union
 
+import context_lib
+from global_models.task_model import CallTask, HTTPServiceRequests
 from orchestrator import cloudwatch_logs
 from orchestrator.response_models import HTTPServiceRequests, Log
-from task_queue.task_message_model import TaskChangeMessage
+from task_queue.task_message_model import TaskTriggerMessage
 
 
 class TaskTriggerResponse(BaseModel):
@@ -30,13 +33,12 @@ class NextLogsResponse(BaseModel):
 
 
 async def handle_http_task(
-        task_change: TaskChangeMessage,
+        task_change: TaskTriggerMessage,
         task_interrupt_queue: asyncio.Queue,
         log_sender: Union[cloudwatch_logs.DummyLogSender, cloudwatch_logs.LogSender]) -> bool:
     """ Executing an http task and indicates back whether the execution was successful """
 
-    logging.info(f"Task {task_change.task_id} starting on handler pid {os.getpid()}.")
-
+    logging.info(f"Task {task_change.task.id} starting on handler pid {os.getpid()}.")
     logging.getLogger("backoff").addHandler(log_sender)
 
     @backoff.on_exception(backoff.expo, requests.exceptions.HTTPError, max_tries=4)  # todo have retries in task def
@@ -56,13 +58,24 @@ async def handle_http_task(
             raise
         return response
 
-    # todo : have service specified in task
     service_args = dict(
         scheme="https",  # todo: have scheme defined in service registry
         service_dns_or_ip="service_dns_or_ip"  # todo: have dns in service registry
     )
 
     # task trigger
+    context = context_lib.Context(
+        task_id=task_change.task.id,
+        execution_id=task_change.execution_id,
+        **task_change.execution_context.dict(exclude_defaults=True)
+    )
+
+    json_call_template = task_change.task.call_template.json(
+        exclude_defaults=True,
+        exclude=set(CallTask.schema()['properties']) - set(HTTPServiceRequests.schema()['properties']),
+    )
+    call_spec: CallTask = CallTask.parse_raw(SandboxedEnvironment().from_string(json_call_template).render(ctx=context))
+
     try:
         post_response = await request_service(
             method="POST",
