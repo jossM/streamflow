@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import signal
-from typing import Callable
 
 import click
 
@@ -9,25 +8,11 @@ import config
 from logs import logger
 from orchestrator import cloudwatch_logs
 from orchestrator.http_task_handler import handle_http_task
-from orchestrator.main_orchestrator import start_cmd
 from task_queue.task_message_model import TaskTriggerMessage
+from utils.async_utils import build_shutdown_callback
 
 
-def build_shutdown_callback(loop: asyncio.AbstractEventLoop,
-                            max_shutdown_seconds: int,
-                            task_interrupt_queue: asyncio.Queue) -> Callable:
-    """Cancels all running tasks after a given time"""
-    def shutdown(sig):
-        logging.warning(f'Signal {sig.name} received.')
-        task_interrupt_queue.put(f"Task must stop due to signal {sig.name} received..")
-        if max_shutdown_seconds > 0:
-            logging.info(f"Preparing to shutdown in a maximum of {max_shutdown_seconds} second(s)")
-            await asyncio.sleep(delay=max_shutdown_seconds)
-        loop.stop()
-    return shutdown
-
-
-@start_cmd.command(name="task")
+@start_cmd.command(name="task")  # todo
 @click.argument('task_json', type=click.STRING, help="json respecting the TaskTriggerMessage formatting.")
 @click.option('--orchestrator_id', type=click.STRING, help="Id of the scheduler for observability.")
 @click.option("--no-orchestrator", is_flag=True, help="Required if orchestrator id isn't filled")

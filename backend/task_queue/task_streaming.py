@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterator, Dict, List, Optional
+from typing import AsyncIterator, Dict, List, Optional
 
 from logs import logger
 from task_queue import kinesis_stream
@@ -14,7 +14,7 @@ class _ShardAdvancement:
     sequence_number: str
 
 
-async def get_message_stream() -> Iterator[Optional[TaskTriggerMessage]]:
+async def get_message_stream() -> AsyncIterator[Optional[TaskTriggerMessage]]:
     """Orchestrating function to get records from the kinesis stream."""
     shard_advancement: Dict[str, _ShardAdvancement] = dict()
     while True:
@@ -22,7 +22,7 @@ async def get_message_stream() -> Iterator[Optional[TaskTriggerMessage]]:
         for deleted_shard_id in set(shard_advancement.keys()) - set(all_shard_ids):
             shard_advancement.pop(deleted_shard_id)
         for shard_id in random_shuffle(all_shard_ids):
-            records = None
+            records: Optional[List[ReadRecord]] = None
             if shard_id in shard_advancement:
                 try:
                     records, next_shard_iterator = await kinesis_stream.get_shard_records(shard_iterator=shard_id)
@@ -33,16 +33,13 @@ async def get_message_stream() -> Iterator[Optional[TaskTriggerMessage]]:
                         sequence_number=shard_advancement[shard_id].sequence_number
                     )
             else:
-                shard_iterator = kinesis_stream.get_shard_iterator(
-                    shard_id=shard_id,
-                    sequence_number=shard_advancement[shard_id].sequence_number
-                )
-            records: Optional[List[ReadRecord]]
+                shard_iterator = kinesis_stream.get_shard_iterator(shard_id=shard_id)
             if records is None:
                 # shard_iterator is always defined in this case
                 # noinspection PyUnboundLocalVariable
                 records, next_shard_iterator = await kinesis_stream.get_shard_records(shard_iterator)
             if not records:
+                logger.info('No records retrieved from shard')
                 yield None
                 continue
             for r in records:
