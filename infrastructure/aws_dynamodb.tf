@@ -1,3 +1,7 @@
+locals {
+  dynamodb_key_arn = length(data.aws_kms_alias.kms_key.*.arn) > 0 ? data.aws_kms_alias.kms_key.0.arn : null
+}
+
 resource "aws_dynamodb_table" "tasks" {
   name = var.task_table_name
   hash_key = "id"
@@ -9,6 +13,7 @@ resource "aws_dynamodb_table" "tasks" {
   }
   server_side_encryption {
     enabled = true
+    kms_key_arn = local.dynamodb_key_arn
   }
   point_in_time_recovery {
     enabled = true
@@ -30,6 +35,7 @@ resource "aws_dynamodb_table" "tasks_instances" {
 
   server_side_encryption {
     enabled = true
+    kms_key_arn = local.dynamodb_key_arn
   }
   point_in_time_recovery {
     enabled = true

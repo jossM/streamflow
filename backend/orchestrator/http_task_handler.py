@@ -1,19 +1,20 @@
 import asyncio
-import logging
 import os
+from typing import Optional, List, Union
 
 import backoff
 from jinja2.sandbox import SandboxedEnvironment
 import pydantic
 from pydantic import BaseModel, Field
 import requests
-from typing import Optional, List, Union
 
 import context_lib
-from global_models.task_model import CallTask, HTTPServiceRequests
+from logs import logger
+from global_models.task_model import CallTask
 from orchestrator import cloudwatch_logs
 from orchestrator.response_models import HTTPServiceRequests, Log
 from task_queue.task_message_model import TaskTriggerMessage
+from utils.async_utils import StopSignal
 
 
 class TaskTriggerResponse(BaseModel):
@@ -34,12 +35,12 @@ class NextLogsResponse(BaseModel):
 
 async def handle_http_task(
         task_change: TaskTriggerMessage,
-        task_interrupt_queue: asyncio.Queue,
+        stop_signal: StopSignal,
         log_sender: Union[cloudwatch_logs.DummyLogSender, cloudwatch_logs.LogSender]) -> bool:
     """ Executing an http task and indicates back whether the execution was successful """
 
-    logging.info(f"Task {task_change.task.id} starting on handler pid {os.getpid()}.")
-    logging.getLogger("backoff").addHandler(log_sender)
+    logger.info(f"Task {task_change.task.id} starting on handler pid {os.getpid()}.")
+    logger.getLogger("backoff").addHandler(log_sender)
 
     @backoff.on_exception(backoff.expo, requests.exceptions.HTTPError, max_tries=4)  # todo have retries in task def
     async def request_service(method: str, scheme: str, service_dns_or_ip: str, arguments: HTTPServiceRequests):
@@ -54,7 +55,7 @@ async def handle_http_task(
         try:
             response.raise_for_status()
         except requests.exceptions.RequestException:
-            logging.warning(f"Failed to query service. {response.raw}")
+            logger.warning(f"Failed to query service. {response.raw}")
             raise
         return response
 
@@ -85,12 +86,12 @@ async def handle_http_task(
             **service_args
         )
     except requests.exceptions.HTTPError:
-        logging.error("Failed to trigger the task")
+        logger.error("Failed to trigger the task")
         raise
     try:
         trigger_response = TaskTriggerResponse.parse_raw(post_response.raw)
     except pydantic.ValidationError:
-        logging.error(f"Invalid response received from service when triggering the task. {post_response.raw}")
+        logger.error(f"Invalid response received from service when triggering the task. {post_response.raw}")
         raise
     cancel_args = trigger_response.cancel_call
 
@@ -106,7 +107,7 @@ async def handle_http_task(
         try:
             log_response = NextLogsResponse.parse_raw(get_response.raw)
         except pydantic.ValidationError:
-            logging.error(f"Invalid response received from service when triggering the task. {get_response.raw}")
+            logger.error(f"Invalid response received from service when triggering the task. {get_response.raw}")
             raise
         await log_sender.send_service_logs(log_response.logs)
         if log_response.execution_succeeded is not None:
@@ -115,12 +116,12 @@ async def handle_http_task(
             cancel_args = log_response.cancel_call_replacement
 
         # handle cancellations from orchestrator
-        if not task_interrupt_queue.empty():
-            interruption_message = task_interrupt_queue.get()  # empty
-            logging.warning(f"Sending cancel requests: {interruption_message}")
-            await request_service(
+        if stop_signal:
+            logger.warning(f"Stop signal received. Sending cancel requests.")
+            cancel_response = await request_service(
                 method="DELETE",
                 arguments=cancel_args,
                 **service_args
             )
-            logging.info(f"Cancel requests acknowledged by service")
+            logger.info(f"Cancel requests acknowledged by service")
+            # todo : display cancel logs
